@@ -1,0 +1,273 @@
+*ccusage.txt*                    For Neovim >= 0.5.0      Last change: 2025 June 25
+
+==============================================================================
+Table of Contents                                    *ccusage-table-of-contents*
+
+1. ccusage.nvim                                                   |ccusage-nvim|
+  - Features                                                |ccusage-features|
+  - Installation                                        |ccusage-installation|
+  - Prerequisites                                      |ccusage-prerequisites|
+  - Configuration                                      |ccusage-configuration|
+  - Lualine Integration                            |ccusage-lualine-integration|
+  - Advanced Usage                                    |ccusage-advanced-usage|
+  - Commands                                                |ccusage-commands|
+  - API                                                          |ccusage-api|
+  - How it Works                                        |ccusage-how-it-works|
+  - Troubleshooting                                |ccusage-troubleshooting|
+
+==============================================================================
+1. ccusage.nvim                                                   *ccusage-nvim*
+
+A Neovim plugin that displays ccusage (Claude usage metrics) in your Lualine 
+statusline with automatic refresh every 30 seconds.
+
+ccusage.nvim integrates with the ccusage CLI tool to provide real-time 
+monitoring of Claude API usage directly in your Neovim statusline.
+
+FEATURES                                                      *ccusage-features*
+
+• Auto-refresh: Updates ccusage data every 30 seconds (configurable)
+• Cost Display: Shows Claude API usage costs in real-time
+• Token Metrics: Displays token consumption with smart formatting (K/M suffixes)
+• Projection Display: Shows estimated total cost and remaining time for active blocks
+• Burn Rate: Displays cost per hour consumption rate
+• Active Indicator: Visual indicator for currently active usage blocks
+• Multiple Display Formats: 5 different display modes (cost, tokens, both, projection, burnrate)
+• Lualine Integration: Seamless integration with your statusline
+• Manual Controls: Commands for manual refresh, status checking, and debugging
+• Smart Parsing: Handles multiple JSON objects and finds the most recent active data
+
+INSTALLATION                                              *ccusage-installation*
+
+Using lazy.nvim ~
+>lua
+    return {
+      "Namacha411/ccusage.nvim",
+      opts = {},
+    }
+<
+
+Using packer.nvim ~
+>lua
+    use {
+      "Namacha411/ccusage.nvim",
+      config = function()
+        require("ccusage").setup()
+      end,
+    }
+<
+
+PREREQUISITES                                            *ccusage-prerequisites*
+
+• ccusage CLI tool must be available via `npx ccusage@latest`
+• Neovim 0.5+
+• Lualine (for statusline integration)
+
+The ccusage CLI tool can be found at: https://github.com/ryoppippi/ccusage
+
+CONFIGURATION                                            *ccusage-configuration*
+
+Setup ccusage.nvim with your preferred options:
+>lua
+    require("ccusage").setup({
+      update_interval = 30,           -- Update interval in seconds (default: 30)
+      display_format = "cost",        -- Display format (see options below)
+      decimal_places = 4,             -- Decimal places for cost display (default: 4)
+      show_active_indicator = true,   -- Show 🔴 for active blocks (default: true)
+    })
+<
+
+Display Format Options ~
+
+The `display_format` option controls how ccusage data appears in your statusline:
+
+• `"cost"` - Shows current cost with active indicator
+  Example: `🔴 💰 $2.64`
+
+• `"tokens"` - Shows token count with smart formatting
+  Example: `🔴 🔤 25.9K`
+
+• `"both"` - Shows both cost and tokens
+  Example: `🔴 💰 $2.64 🔤 25.9K`
+
+• `"projection"` - Shows projected total tokens, cost and remaining time
+  Example: `🔴 📊 25.9KToken $6.12 (140m)`
+
+• `"burnrate"` - Shows cost consumption rate per hour
+  Example: `🔴 🔥 $1.49/h`
+
+Note: The 🔴 active indicator only appears for currently active usage blocks.
+
+LUALINE INTEGRATION                              *ccusage-lualine-integration*
+
+Add the ccusage component to your Lualine configuration:
+>lua
+    require("lualine").setup({
+      sections = {
+        lualine_x = { 
+          require("ccusage").get_lualine_component(),
+          -- your other components...
+        },
+      }
+    })
+<
+
+The component automatically handles:
+• Loading states with "ccusage: loading..." message
+• Conditional display (only shows when data is available)
+• Format-specific rendering based on your configuration
+
+ADVANCED USAGE                                        *ccusage-advanced-usage*
+
+Real-time Projection Tracking ~
+
+For active coding sessions, use projection mode to see estimated costs:
+>lua
+    require("ccusage").setup({
+      display_format = "projection",  -- projected tokens, cost, time
+      update_interval = 15,           -- More frequent updates for active sessions
+    })
+<
+
+Burn Rate Monitoring ~
+
+Monitor your API consumption rate:
+>lua
+    require("ccusage").setup({
+      display_format = "burnrate",    -- cost per hour
+    })
+<
+
+COMMANDS                                                      *ccusage-commands*
+
+                                                            *:CCUsageRefresh*
+:CCUsageRefresh         Manually refresh ccusage data from the CLI tool.
+
+                                                             *:CCUsageStatus*
+:CCUsageStatus          Display current ccusage status in command line.
+
+API                                                                *ccusage-api*
+
+                                                           *ccusage.get_status()*
+ccusage.get_status()
+    Get current ccusage status data.
+
+    Returns: ~
+        Table with the following fields:
+        • cost (number): Current cost in USD
+        • total_tokens (number): Total token count
+        • input_tokens (number): Input token count
+        • output_tokens (number): Output token count
+        • is_active (boolean): Whether block is currently active
+        • burn_rate (table): Contains tokensPerMinute and costPerHour
+        • projection (table): Contains totalTokens, totalCost, remainingMinutes
+        • block_id (string): Unique identifier for the usage block
+
+    Example: ~
+>lua
+        local status = require("ccusage").get_status()
+        if status then
+          print("Current cost: $" .. status.cost)
+          print("Total tokens: " .. status.total_tokens)
+        end
+<
+
+                                                              *ccusage.refresh()*
+ccusage.refresh()
+    Manually refresh ccusage data by executing the CLI command.
+
+                                                 *ccusage.get_lualine_component()*
+ccusage.get_lualine_component()
+    Get a Lualine component function for displaying ccusage data.
+
+    Returns: ~
+        Table containing Lualine component configuration with:
+        • function: Component display function
+        • cond: Condition function (only shows when data is available)
+
+    Example: ~
+>lua
+        local ccusage_component = require("ccusage").get_lualine_component()
+        -- Use in lualine.setup({ sections = { lualine_x = { ccusage_component } } })
+<
+
+                                                                *ccusage.setup()*
+ccusage.setup({config})
+    Initialize the ccusage plugin with optional configuration.
+
+    Parameters: ~
+        {config} (table|nil): Configuration options
+            • update_interval (number): Update interval in seconds (default: 30)
+            • display_format (string): Display format (default: "cost")
+            • decimal_places (number): Cost decimal places (default: 4)
+            • show_active_indicator (boolean): Show active indicator (default: true)
+
+HOW IT WORKS                                              *ccusage-how-it-works*
+
+The plugin executes `npx ccusage@latest blocks --json` to fetch current Claude 
+API usage data, intelligently parses multiple JSON objects in the response, 
+and displays the most recent active block metrics in your statusline. Data is 
+automatically refreshed every 30 seconds (configurable) and cached for performance.
+
+Smart Data Selection ~
+
+• Multi-JSON Parsing: Handles multiple JSON objects in ccusage output using 
+  smart brace counting
+• Active Block Priority: Prioritizes currently active usage blocks over completed ones
+• Timestamp Comparison: Finds the most recent data across all blocks using proper 
+  date parsing
+• Gap Filtering: Automatically skips inactive gap periods to show relevant metrics
+• Multiple Data Formats: Supports summary, data array, and blocks array JSON structures
+
+Data Processing ~
+
+• Advanced Token Calculation: Aggregates all token types (input, output, cache 
+  creation, cache read)
+• Burn Rate Calculation: Provides real-time cost per hour consumption metrics
+• Projection Analysis: Estimates total costs and remaining time for active sessions
+• Error Handling: Comprehensive error tracking with detailed failure messages
+
+Timer Management ~
+
+The plugin uses `vim.loop.new_timer()` to automatically refresh data at the 
+configured interval. The timer is properly managed with cleanup on plugin reload.
+
+TROUBLESHOOTING                                      *ccusage-troubleshooting*
+
+Common Issues ~
+
+"No data available" ~
+Check if ccusage command works by running `npx ccusage@latest blocks --json` manually.
+
+Empty display ~
+Ensure ccusage is configured with valid Claude API credentials.
+
+Parsing errors ~
+Verify ccusage output contains valid JSON structure. Check `:CCUsageStatus` for 
+error details.
+
+Command not found ~
+Ensure Node.js is installed and `npx` is available in your PATH.
+
+Debugging ~
+
+Use `:CCUsageStatus` to see the current plugin state and any error messages.
+The command shows:
+• Current cached data
+• Last update timestamp
+• Any parsing or execution errors
+
+Enable verbose logging by checking the ccusage CLI tool output manually:
+>bash
+    npx ccusage@latest blocks --json
+<
+
+==============================================================================
+2. Links                                                      *ccusage-links*
+
+1. ccusage CLI tool: https://github.com/ryoppippi/ccusage
+2. Lualine: https://github.com/nvim-lualine/lualine.nvim
+
+Generated by manual documentation
+
+vim:tw=78:ts=8:noet:ft=help:norl:

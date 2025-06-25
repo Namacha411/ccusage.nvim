@@ -63,7 +63,7 @@ require("ccusage").setup({
 | `"cost"` | `🔴 💰 $2.64` | Current cost with active indicator |
 | `"tokens"` | `🔴 🔤 25.9K` | Token count with smart formatting |
 | `"both"` | `🔴 💰 $2.64 🔤 25.9K` | Both cost and tokens |
-| `"projection"` | `🔴 📊 $6.12 (140m)` | Projected total cost and remaining time |
+| `"projection"` | `🔴 📊 25.9KToken $6.12 (140m)` | Projected total tokens, cost and remaining time |
 | `"burnrate"` | `🔴 🔥 $1.49/h` | Cost consumption rate per hour |
 
 > **Note**: The 🔴 active indicator only appears for currently active usage blocks
@@ -90,7 +90,7 @@ For active coding sessions, use projection mode to see estimated costs:
 
 ```lua
 require("ccusage").setup({
-  display_format = "projection",  -- 📊 $6.12 (140m) - projected total with time remaining
+  display_format = "projection",  -- 📊 25.9KToken $6.12 (140m) - projected tokens, cost, time
   update_interval = 15,           -- More frequent updates for active sessions
 })
 ```
@@ -139,10 +139,17 @@ local component = ccusage.get_lualine_component()
 The plugin executes `npx ccusage@latest blocks --json` to fetch current Claude API usage data, intelligently parses multiple JSON objects in the response, and displays the most recent active block metrics in your statusline. Data is automatically refreshed every 30 seconds (configurable) and cached for performance.
 
 ### Smart Data Selection
-- **Multi-JSON Parsing**: Handles multiple JSON objects in ccusage output
-- **Active Block Priority**: Prioritizes currently active usage blocks
-- **Timestamp Comparison**: Finds the most recent data across all blocks
-- **Gap Filtering**: Automatically skips inactive gap periods
+- **Multi-JSON Parsing**: Handles multiple JSON objects in ccusage output using smart brace counting
+- **Active Block Priority**: Prioritizes currently active usage blocks over completed ones
+- **Timestamp Comparison**: Finds the most recent data across all blocks using proper date parsing
+- **Gap Filtering**: Automatically skips inactive gap periods to show relevant metrics
+- **Multiple Data Formats**: Supports summary, data array, and blocks array JSON structures
+
+### Data Processing
+- **Advanced Token Calculation**: Aggregates all token types (input, output, cache creation, cache read)
+- **Burn Rate Calculation**: Provides real-time cost per hour consumption metrics
+- **Projection Analysis**: Estimates total costs and remaining time for active sessions
+- **Error Handling**: Comprehensive error tracking with detailed failure messages
 
 ## Troubleshooting
 
