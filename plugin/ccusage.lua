@@ -31,7 +31,18 @@ vim.api.nvim_create_user_command("CCUsageDebug", function()
     print("Last error: None")
   end
   if debug_info.cache.data then
-    print("Data: " .. vim.inspect(debug_info.cache.data))
+    print("Data:")
+    print("  Cost: " .. (debug_info.cache.data.cost or "N/A"))
+    print("  Total Tokens: " .. (debug_info.cache.data.total_tokens or "N/A"))
+    print("  Is Active: " .. tostring(debug_info.cache.data.is_active or false))
+    print("  Block ID: " .. (debug_info.cache.data.block_id or "N/A"))
+    if debug_info.cache.data.projection then
+      print("  Projection: " .. vim.inspect(debug_info.cache.data.projection))
+    end
+    if debug_info.cache.data.burn_rate then
+      print("  Burn Rate: " .. vim.inspect(debug_info.cache.data.burn_rate))
+    end
+    print("  Full Data: " .. vim.inspect(debug_info.cache.data))
   else
     print("Data: None")
   end
@@ -45,7 +56,7 @@ vim.api.nvim_create_user_command("CCUsageTest", function()
   local output = {}
   local error_output = {}
   
-  local job_id = vim.fn.jobstart({"npx", "ccusage@latest", "blocks", "--json"}, {
+  local job_id = vim.fn.jobstart({"npx", "ccusage@latest", "blocks", "--active", "--json"}, {
     stdout_buffered = true,
     stderr_buffered = true,
     on_stdout = function(_, data, _)

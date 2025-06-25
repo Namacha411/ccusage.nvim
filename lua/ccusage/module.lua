@@ -36,77 +36,127 @@ local function parse_ccusage_output(output)
   debug_log("Parsing ccusage output, length: " .. #output)
   debug_log("Raw output: " .. output)
   
-  local ok, data = pcall(vim.json.decode, output)
-  if not ok then
-    debug_log("JSON decode failed: " .. tostring(data))
-    cache.last_error = "JSON decode failed: " .. tostring(data)
-    return nil
-  end
+  -- Handle multiple JSON objects (split by newlines and parse each)
+  local json_objects = {}
+  local lines = vim.split(output, '\n')
+  local current_json = ""
+  local brace_count = 0
   
-  if not data then
-    debug_log("JSON decode returned nil")
-    cache.last_error = "JSON decode returned nil"
-    return nil
-  end
-  
-  debug_log("JSON decoded successfully, type: " .. type(data))
-  debug_log("Data keys: " .. vim.inspect(vim.tbl_keys(data)))
-  
-  if data.summary then
-    debug_log("Found summary data")
-    debug_log("Summary: " .. vim.inspect(data.summary))
-    return {
-      cost = data.summary.costUSD,
-      total_tokens = data.summary.totalTokens,
-      input_tokens = data.summary.inputTokens,
-      output_tokens = data.summary.outputTokens,
-    }
-  elseif data.data and #data.data > 0 then
-    debug_log("Found data array with " .. #data.data .. " entries")
-    local latest = data.data[#data.data]
-    debug_log("Latest entry: " .. vim.inspect(latest))
-    return {
-      cost = latest.costUSD,
-      total_tokens = latest.totalTokens,
-      input_tokens = latest.inputTokens,
-      output_tokens = latest.outputTokens,
-    }
-  elseif data.blocks and #data.blocks > 0 then
-    debug_log("Found blocks array with " .. #data.blocks .. " entries")
-    
-    -- Find the most recent active block or the latest non-gap block
-    local latest_block = nil
-    for i = #data.blocks, 1, -1 do
-      local block = data.blocks[i]
-      if not block.isGap then
-        latest_block = block
-        break
+  for _, line in ipairs(lines) do
+    if line:match('^%s*{') or brace_count > 0 then
+      current_json = current_json .. line .. '\n'
+      
+      -- Count braces to determine when JSON object is complete
+      for char in line:gmatch('.') do
+        if char == '{' then
+          brace_count = brace_count + 1
+        elseif char == '}' then
+          brace_count = brace_count - 1
+        end
+      end
+      
+      -- When brace count reaches 0, we have a complete JSON object
+      if brace_count == 0 and current_json:match('%S') then
+        local ok, data = pcall(vim.json.decode, current_json)
+        if ok and data then
+          table.insert(json_objects, data)
+        end
+        current_json = ""
       end
     end
-    
-    if latest_block then
-      debug_log("Using block: " .. vim.inspect(latest_block))
-      
-      -- Calculate total tokens from tokenCounts
-      local token_counts = latest_block.tokenCounts or {}
-      local total_tokens = latest_block.totalTokens or (
-        (token_counts.inputTokens or 0) + 
-        (token_counts.outputTokens or 0) + 
-        (token_counts.cacheCreationInputTokens or 0) + 
-        (token_counts.cacheReadInputTokens or 0)
-      )
-      
-      return {
-        cost = latest_block.costUSD,
-        total_tokens = total_tokens,
-        input_tokens = token_counts.inputTokens or 0,
-        output_tokens = token_counts.outputTokens or 0,
-      }
+  end
+  
+  -- If no multiple objects found, try parsing the entire output as one JSON
+  if #json_objects == 0 then
+    local ok, data = pcall(vim.json.decode, output)
+    if ok and data then
+      table.insert(json_objects, data)
     else
-      debug_log("No non-gap blocks found")
-      cache.last_error = "No non-gap blocks found in ccusage data"
+      debug_log("JSON decode failed: " .. tostring(data))
+      cache.last_error = "JSON decode failed: " .. tostring(data)
       return nil
     end
+  end
+  
+  debug_log("Found " .. #json_objects .. " JSON objects")
+  
+  -- Process each JSON object and find the best data
+  local best_block = nil
+  local best_timestamp = 0
+  
+  for _, data in ipairs(json_objects) do
+    debug_log("Processing JSON object with keys: " .. vim.inspect(vim.tbl_keys(data)))
+    
+    if data.summary then
+      debug_log("Found summary data")
+      return {
+        cost = data.summary.costUSD,
+        total_tokens = data.summary.totalTokens,
+        input_tokens = data.summary.inputTokens,
+        output_tokens = data.summary.outputTokens,
+      }
+    elseif data.data and #data.data > 0 then
+      debug_log("Found data array with " .. #data.data .. " entries")
+      local latest = data.data[#data.data]
+      return {
+        cost = latest.costUSD,
+        total_tokens = latest.totalTokens,
+        input_tokens = latest.inputTokens,
+        output_tokens = latest.outputTokens,
+      }
+    elseif data.blocks and #data.blocks > 0 then
+      debug_log("Found blocks array with " .. #data.blocks .. " entries")
+      
+      -- Find the most recent active block or latest non-gap block
+      for i = #data.blocks, 1, -1 do
+        local block = data.blocks[i]
+        if not block.isGap then
+          -- Convert timestamp to compare recency
+          local timestamp = 0
+          if block.actualEndTime then
+            timestamp = vim.fn.strptime("%Y-%m-%dT%H:%M:%S", block.actualEndTime:sub(1, 19))
+          elseif block.startTime then
+            timestamp = vim.fn.strptime("%Y-%m-%dT%H:%M:%S", block.startTime:sub(1, 19))
+          end
+          
+          if timestamp > best_timestamp then
+            best_block = block
+            best_timestamp = timestamp
+          end
+          break -- Use the first (most recent) non-gap block from this object
+        end
+      end
+    end
+  end
+  
+  if best_block then
+    debug_log("Using best block: " .. best_block.id)
+    debug_log("Block details: " .. vim.inspect({
+      isActive = best_block.isActive,
+      costUSD = best_block.costUSD,
+      totalTokens = best_block.totalTokens,
+      burnRate = best_block.burnRate,
+      projection = best_block.projection
+    }))
+    
+    local token_counts = best_block.tokenCounts or {}
+    local total_tokens = best_block.totalTokens or (
+      (token_counts.inputTokens or 0) + 
+      (token_counts.outputTokens or 0) + 
+      (token_counts.cacheCreationInputTokens or 0) + 
+      (token_counts.cacheReadInputTokens or 0)
+    )
+    
+    return {
+      cost = best_block.costUSD,
+      total_tokens = total_tokens,
+      input_tokens = token_counts.inputTokens or 0,
+      output_tokens = token_counts.outputTokens or 0,
+      is_active = best_block.isActive,
+      burn_rate = best_block.burnRate,
+      projection = best_block.projection,
+      block_id = best_block.id,
+    }
   end
   
   debug_log("No valid data structure found (expected 'summary', 'data', or 'blocks')")
@@ -229,12 +279,26 @@ M.get_lualine_component = function()
         return "ccusage: loading..."
       end
       
+      local active_indicator = ""
+      if config.show_active_indicator and cache.data.is_active then
+        active_indicator = "🔴 "
+      end
+      
       if config.display_format == "cost" then
-        return "💰 " .. format_cost(cache.data.cost)
+        return active_indicator .. "💰 " .. format_cost(cache.data.cost)
       elseif config.display_format == "tokens" then
-        return "🔤 " .. format_tokens(cache.data.total_tokens)
-      else -- both
-        return "💰 " .. format_cost(cache.data.cost) .. " 🔤 " .. format_tokens(cache.data.total_tokens)
+        return active_indicator .. "🔤 " .. format_tokens(cache.data.total_tokens)
+      elseif config.display_format == "both" then
+        return active_indicator .. "💰 " .. format_cost(cache.data.cost) .. " 🔤 " .. format_tokens(cache.data.total_tokens)
+      elseif config.display_format == "projection" and cache.data.projection then
+        local proj = cache.data.projection
+        return active_indicator .. "📊 " .. format_cost(proj.totalCost) .. " (" .. (proj.remainingMinutes or 0) .. "m)"
+      elseif config.display_format == "burnrate" and cache.data.burn_rate then
+        local rate = cache.data.burn_rate
+        return active_indicator .. "🔥 " .. format_cost(rate.costPerHour) .. "/h"
+      else
+        -- Fallback to cost display
+        return active_indicator .. "💰 " .. format_cost(cache.data.cost)
       end
     end,
     cond = function()

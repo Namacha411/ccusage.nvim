@@ -2,14 +2,16 @@ local ccusage = require("ccusage.module")
 
 ---@class CCUsageConfig
 ---@field update_interval number Update interval in seconds (default: 30)
----@field display_format string Display format: "cost" | "tokens" | "both" (default: "cost")
+---@field display_format string Display format: "cost" | "tokens" | "both" | "projection" | "burnrate" (default: "cost")
 ---@field decimal_places number Decimal places for cost display (default: 4)
 ---@field debug boolean Enable debug logging (default: false)
+---@field show_active_indicator boolean Show indicator for active blocks (default: true)
 local config = {
   update_interval = 30,
   display_format = "cost",
   decimal_places = 4,
   debug = false,
+  show_active_indicator = true,
 }
 
 ---@class CCUsagePlugin
