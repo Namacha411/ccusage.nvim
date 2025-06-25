@@ -1,27 +1,37 @@
--- main module file
-local module = require("ccusage.module")
+local ccusage = require("ccusage.module")
 
----@class Config
----@field opt string Your config option
+---@class CCUsageConfig
+---@field update_interval number Update interval in seconds (default: 30)
+---@field display_format string Display format: "cost" | "tokens" | "both" (default: "cost")
+---@field decimal_places number Decimal places for cost display (default: 4)
 local config = {
-  opt = "Hello!",
+  update_interval = 30,
+  display_format = "cost",
+  decimal_places = 4,
 }
 
----@class MyModule
+---@class CCUsagePlugin
 local M = {}
 
----@type Config
+---@type CCUsageConfig
 M.config = config
 
----@param args Config?
--- you can define your setup function here. Usually configurations can be merged, accepting outside params and
--- you can also put some validation here for those.
+---@param args CCUsageConfig?
 M.setup = function(args)
   M.config = vim.tbl_deep_extend("force", M.config, args or {})
+  ccusage.setup(M.config)
 end
 
-M.hello = function()
-  return module.my_first_function(M.config.opt)
+M.get_status = function()
+  return ccusage.get_status()
+end
+
+M.refresh = function()
+  ccusage.refresh()
+end
+
+M.get_lualine_component = function()
+  return ccusage.get_lualine_component()
 end
 
 return M
