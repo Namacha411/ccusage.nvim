@@ -1,5 +1,5 @@
 vim.api.nvim_create_user_command("CCUsageRefresh", require("ccusage").refresh, {
-  desc = "Refresh ccusage data manually"
+  desc = "Refresh ccusage data manually",
 })
 
 vim.api.nvim_create_user_command("CCUsageStatus", function()
@@ -10,5 +10,5 @@ vim.api.nvim_create_user_command("CCUsageStatus", function()
     print("CCUsage: No data available")
   end
 end, {
-  desc = "Show current ccusage status"
+  desc = "Show current ccusage status",
 })

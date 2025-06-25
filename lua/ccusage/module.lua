@@ -10,13 +10,17 @@ local cache = {
 }
 
 local function format_cost(cost)
-  if not cost then return "N/A" end
+  if not cost then
+    return "N/A"
+  end
   local decimal_places = config.decimal_places or 2
   return string.format("$%." .. decimal_places .. "f", cost)
 end
 
 local function format_tokens(tokens)
-  if not tokens then return "N/A" end
+  if not tokens then
+    return "N/A"
+  end
   if tokens >= 1000000 then
     return string.format("%.1fM", tokens / 1000000)
   elseif tokens >= 1000 then
@@ -29,25 +33,25 @@ end
 local function parse_ccusage_output(output)
   -- Handle multiple JSON objects (split by newlines and parse each)
   local json_objects = {}
-  local lines = vim.split(output, '\n')
+  local lines = vim.split(output, "\n")
   local current_json = ""
   local brace_count = 0
 
   for _, line in ipairs(lines) do
-    if line:match('^%s*{') or brace_count > 0 then
-      current_json = current_json .. line .. '\n'
+    if line:match("^%s*{") or brace_count > 0 then
+      current_json = current_json .. line .. "\n"
 
       -- Count braces to determine when JSON object is complete
-      for char in line:gmatch('.') do
-        if char == '{' then
+      for char in line:gmatch(".") do
+        if char == "{" then
           brace_count = brace_count + 1
-        elseif char == '}' then
+        elseif char == "}" then
           brace_count = brace_count - 1
         end
       end
 
       -- When brace count reaches 0, we have a complete JSON object
-      if brace_count == 0 and current_json:match('%S') then
+      if brace_count == 0 and current_json:match("%S") then
         local ok, data = pcall(vim.json.decode, current_json)
         if ok and data then
           table.insert(json_objects, data)
@@ -113,12 +117,13 @@ local function parse_ccusage_output(output)
 
   if best_block then
     local token_counts = best_block.tokenCounts or {}
-    local total_tokens = best_block.totalTokens or (
-      (token_counts.inputTokens or 0) +
-      (token_counts.outputTokens or 0) +
-      (token_counts.cacheCreationInputTokens or 0) +
-      (token_counts.cacheReadInputTokens or 0)
-    )
+    local total_tokens = best_block.totalTokens
+      or (
+        (token_counts.inputTokens or 0)
+        + (token_counts.outputTokens or 0)
+        + (token_counts.cacheCreationInputTokens or 0)
+        + (token_counts.cacheReadInputTokens or 0)
+      )
 
     return {
       cost = best_block.costUSD,
@@ -175,7 +180,9 @@ local function fetch_ccusage_data(callback)
             cache.data = parsed
             cache.last_update = vim.loop.now()
             cache.last_error = nil
-            if callback then callback(parsed) end
+            if callback then
+              callback(parsed)
+            end
           end
         else
           cache.last_error = "Command succeeded but returned no output"
@@ -242,14 +249,21 @@ M.get_lualine_component = function()
       elseif config.display_format == "tokens" then
         return active_indicator .. "🔤 " .. format_tokens(cache.data.total_tokens)
       elseif config.display_format == "both" then
-        return active_indicator ..
-            "💰 " .. format_cost(cache.data.cost) .. " 🔤 " .. format_tokens(cache.data.total_tokens)
+        return active_indicator
+          .. "💰 "
+          .. format_cost(cache.data.cost)
+          .. " 🔤 "
+          .. format_tokens(cache.data.total_tokens)
       elseif config.display_format == "projection" and cache.data.projection then
         local proj = cache.data.projection
-        return active_indicator ..
-            "📊 " ..
-            format_tokens(proj.totalTokens) ..
-            "Token " .. format_cost(proj.totalCost) .. " (" .. (proj.remainingMinutes or 0) .. "m)"
+        return active_indicator
+          .. "📊 "
+          .. format_tokens(proj.totalTokens)
+          .. "Token "
+          .. format_cost(proj.totalCost)
+          .. " ("
+          .. (proj.remainingMinutes or 0)
+          .. "m)"
       elseif config.display_format == "burnrate" and cache.data.burn_rate then
         local rate = cache.data.burn_rate
         return active_indicator .. "🔥 " .. format_cost(rate.costPerHour) .. "/h"

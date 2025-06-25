@@ -14,7 +14,7 @@ describe("setup", function()
       update_interval = 60,
       display_format = "tokens",
       decimal_places = 2,
-      show_active_indicator = false
+      show_active_indicator = false,
     })
     assert(plugin.config.update_interval == 60, "custom update_interval should be 60")
     assert(plugin.config.display_format == "tokens", "custom display_format should be 'tokens'")
@@ -36,4 +36,3 @@ describe("setup", function()
     assert(type(component.cond) == "function", "should have a cond function")
   end)
 end)
-
