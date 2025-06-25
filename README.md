@@ -33,15 +33,15 @@ Click on `Use this template`
 ```
 .
 ├── lua
-│   ├── plugin_name
+│   ├── ccusage
 │   │   └── module.lua
-│   └── plugin_name.lua
+│   └── ccusage.lua
 ├── Makefile
 ├── plugin
-│   └── plugin_name.lua
+│   └── ccusage.lua
 ├── README.md
 ├── tests
 │   ├── minimal_init.lua
-│   └── plugin_name
-│       └── plugin_name_spec.lua
+│   └── ccusage
+│       └── ccusage_spec.lua
 ```
