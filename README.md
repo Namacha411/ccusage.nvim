@@ -4,6 +4,8 @@
 
 A Neovim plugin that displays [ccusage](https://github.com/ryoppippi/ccusage) metrics in your Lualine statusline with automatic refresh every 30 seconds.
 
+![image](https://github.com/user-attachments/assets/9e2db850-8a1a-4009-aeb3-9a8015b4a825)
+
 ## Features
 
 - 🔄 **Auto-refresh**: Updates ccusage data every 30 seconds (configurable)
