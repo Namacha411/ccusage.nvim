@@ -17,7 +17,8 @@ end
 
 local function format_cost(cost)
   if not cost then return "N/A" end
-  return string.format("$%.4f", cost)
+  local decimal_places = config.decimal_places or 4
+  return string.format("$%." .. decimal_places .. "f", cost)
 end
 
 local function format_tokens(tokens)
@@ -70,10 +71,46 @@ local function parse_ccusage_output(output)
       input_tokens = latest.inputTokens,
       output_tokens = latest.outputTokens,
     }
+  elseif data.blocks and #data.blocks > 0 then
+    debug_log("Found blocks array with " .. #data.blocks .. " entries")
+    
+    -- Find the most recent active block or the latest non-gap block
+    local latest_block = nil
+    for i = #data.blocks, 1, -1 do
+      local block = data.blocks[i]
+      if not block.isGap then
+        latest_block = block
+        break
+      end
+    end
+    
+    if latest_block then
+      debug_log("Using block: " .. vim.inspect(latest_block))
+      
+      -- Calculate total tokens from tokenCounts
+      local token_counts = latest_block.tokenCounts or {}
+      local total_tokens = latest_block.totalTokens or (
+        (token_counts.inputTokens or 0) + 
+        (token_counts.outputTokens or 0) + 
+        (token_counts.cacheCreationInputTokens or 0) + 
+        (token_counts.cacheReadInputTokens or 0)
+      )
+      
+      return {
+        cost = latest_block.costUSD,
+        total_tokens = total_tokens,
+        input_tokens = token_counts.inputTokens or 0,
+        output_tokens = token_counts.outputTokens or 0,
+      }
+    else
+      debug_log("No non-gap blocks found")
+      cache.last_error = "No non-gap blocks found in ccusage data"
+      return nil
+    end
   end
   
-  debug_log("No valid data structure found")
-  cache.last_error = "No valid data structure found in JSON"
+  debug_log("No valid data structure found (expected 'summary', 'data', or 'blocks')")
+  cache.last_error = "No valid data structure found in JSON (expected 'summary', 'data', or 'blocks')"
   return nil
 end
 
