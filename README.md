@@ -52,7 +52,6 @@ require("ccusage").setup({
   update_interval = 30,           -- Update interval in seconds (default: 30)
   display_format = "cost",        -- Display format (see options below)
   decimal_places = 4,             -- Decimal places for cost display (default: 4)
-  debug = false,                  -- Enable debug logging (default: false)
   show_active_indicator = true,   -- Show 🔴 for active blocks (default: true)
 })
 ```
@@ -71,7 +70,7 @@ require("ccusage").setup({
 
 ## Lualine Integration
 
-Add the ccusage component to your Lualine configuration:
+Add the ccusage component to your [Lualine configuration](https://github.com/nvim-lualine/lualine.nvim?tab=readme-ov-file#general-component-options):
 
 ```lua
 require("lualine").setup({
@@ -109,8 +108,6 @@ require("ccusage").setup({
 
 - `:CCUsageRefresh` - Manually refresh ccusage data
 - `:CCUsageStatus` - Display current ccusage status in command line
-- `:CCUsageDebug` - Show detailed diagnostic information (cache, config, errors)
-- `:CCUsageTest` - Test ccusage command execution manually
 
 ## API
 
@@ -135,9 +132,6 @@ ccusage.refresh()
 
 -- Get Lualine component
 local component = ccusage.get_lualine_component()
-
--- Get debug information
-local debug_info = ccusage.get_debug_info()
 ```
 
 ## How it Works
@@ -152,23 +146,10 @@ The plugin executes `npx ccusage@latest blocks --json` to fetch current Claude A
 
 ## Troubleshooting
 
-### Debug Mode
-Enable debug logging to troubleshoot issues:
-
-```lua
-require("ccusage").setup({ debug = true })
-```
-
-Then use `:CCUsageDebug` to see detailed information about:
-- Configuration settings
-- Cache status and data
-- Last update time and errors
-- Raw JSON parsing results
-
 ### Common Issues
-- **"No data available"**: Run `:CCUsageTest` to check if ccusage command works
+- **"No data available"**: Check if ccusage command works by running `npx ccusage@latest blocks --json` manually
 - **Empty display**: Ensure ccusage is configured with valid Claude API credentials
-- **Parsing errors**: Check `:CCUsageDebug` for JSON structure issues
+- **Parsing errors**: Verify ccusage output contains valid JSON structure
 
 ## Requirements
 

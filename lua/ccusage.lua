@@ -4,13 +4,11 @@ local ccusage = require("ccusage.module")
 ---@field update_interval number Update interval in seconds (default: 30)
 ---@field display_format string Display format: "cost" | "tokens" | "both" | "projection" | "burnrate" (default: "cost")
 ---@field decimal_places number Decimal places for cost display (default: 4)
----@field debug boolean Enable debug logging (default: false)
 ---@field show_active_indicator boolean Show indicator for active blocks (default: true)
 local config = {
   update_interval = 30,
   display_format = "cost",
   decimal_places = 4,
-  debug = false,
   show_active_indicator = true,
 }
 
@@ -36,10 +34,6 @@ end
 
 M.get_lualine_component = function()
   return ccusage.get_lualine_component()
-end
-
-M.get_debug_info = function()
-  return ccusage.get_debug_info()
 end
 
 return M
