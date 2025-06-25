@@ -247,7 +247,7 @@ M.get_lualine_component = function()
         return active_indicator .. "💰 " .. format_cost(cache.data.cost) .. " 🔤 " .. format_tokens(cache.data.total_tokens)
       elseif config.display_format == "projection" and cache.data.projection then
         local proj = cache.data.projection
-        return active_indicator .. "📊 " .. format_tokens(proj.totalTokens) .. format_cost(proj.totalCost) .. " (" .. (proj.remainingMinutes or 0) .. "m)"
+        return active_indicator .. "📊 " .. format_tokens(proj.totalTokens) .. "Token " .. format_cost(proj.totalCost) .. " (" .. (proj.remainingMinutes or 0) .. "m)"
       elseif config.display_format == "burnrate" and cache.data.burn_rate then
         local rate = cache.data.burn_rate
         return active_indicator .. "🔥 " .. format_cost(rate.costPerHour) .. "/h"
