@@ -12,4 +12,3 @@ vim.api.nvim_create_user_command("CCUsageStatus", function()
 end, {
   desc = "Show current ccusage status"
 })
-

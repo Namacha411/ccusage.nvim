@@ -36,3 +36,4 @@ describe("setup", function()
     assert(type(component.cond) == "function", "should have a cond function")
   end)
 end)
+

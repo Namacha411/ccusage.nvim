@@ -1,2 +1,4 @@
 vendor/plenary.nvim
 CLAUDE.md
+Session.vim
+*.json
