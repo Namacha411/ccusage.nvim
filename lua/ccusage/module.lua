@@ -6,7 +6,14 @@ local cache = {
   data = nil,
   last_update = 0,
   timer = nil,
+  last_error = nil,
 }
+
+local function debug_log(msg)
+  if config.debug then
+    print("[ccusage.nvim] " .. msg)
+  end
+end
 
 local function format_cost(cost)
   if not cost then return "N/A" end
@@ -25,12 +32,28 @@ local function format_tokens(tokens)
 end
 
 local function parse_ccusage_output(output)
+  debug_log("Parsing ccusage output, length: " .. #output)
+  debug_log("Raw output: " .. output)
+  
   local ok, data = pcall(vim.json.decode, output)
-  if not ok or not data then
+  if not ok then
+    debug_log("JSON decode failed: " .. tostring(data))
+    cache.last_error = "JSON decode failed: " .. tostring(data)
     return nil
   end
   
+  if not data then
+    debug_log("JSON decode returned nil")
+    cache.last_error = "JSON decode returned nil"
+    return nil
+  end
+  
+  debug_log("JSON decoded successfully, type: " .. type(data))
+  debug_log("Data keys: " .. vim.inspect(vim.tbl_keys(data)))
+  
   if data.summary then
+    debug_log("Found summary data")
+    debug_log("Summary: " .. vim.inspect(data.summary))
     return {
       cost = data.summary.costUSD,
       total_tokens = data.summary.totalTokens,
@@ -38,7 +61,9 @@ local function parse_ccusage_output(output)
       output_tokens = data.summary.outputTokens,
     }
   elseif data.data and #data.data > 0 then
+    debug_log("Found data array with " .. #data.data .. " entries")
     local latest = data.data[#data.data]
+    debug_log("Latest entry: " .. vim.inspect(latest))
     return {
       cost = latest.costUSD,
       total_tokens = latest.totalTokens,
@@ -47,15 +72,22 @@ local function parse_ccusage_output(output)
     }
   end
   
+  debug_log("No valid data structure found")
+  cache.last_error = "No valid data structure found in JSON"
   return nil
 end
 
 local function fetch_ccusage_data(callback)
   local output = {}
+  local error_output = {}
   
-  vim.fn.jobstart({"npx", "ccusage@latest", "blocks", "--json"}, {
+  debug_log("Starting ccusage command: npx ccusage@latest blocks --json")
+  
+  local job_id = vim.fn.jobstart({"npx", "ccusage@latest", "blocks", "--json"}, {
     stdout_buffered = true,
+    stderr_buffered = true,
     on_stdout = function(_, data, _)
+      debug_log("Received stdout data: " .. vim.inspect(data))
       if data then
         for _, line in ipairs(data) do
           if line ~= "" then
@@ -64,18 +96,64 @@ local function fetch_ccusage_data(callback)
         end
       end
     end,
+    on_stderr = function(_, data, _)
+      debug_log("Received stderr data: " .. vim.inspect(data))
+      if data then
+        for _, line in ipairs(data) do
+          if line ~= "" then
+            table.insert(error_output, line)
+          end
+        end
+      end
+    end,
     on_exit = function(_, code, _)
-      if code == 0 and #output > 0 then
-        local json_string = table.concat(output, "\n")
-        local parsed = parse_ccusage_output(json_string)
-        if parsed then
-          cache.data = parsed
-          cache.last_update = vim.loop.now()
-          if callback then callback(parsed) end
+      debug_log("Command exited with code: " .. code)
+      debug_log("Output lines: " .. #output)
+      debug_log("Error lines: " .. #error_output)
+      
+      if #error_output > 0 then
+        local error_msg = table.concat(error_output, "\n")
+        debug_log("Error output: " .. error_msg)
+        cache.last_error = "Command stderr: " .. error_msg
+      end
+      
+      if code == 0 then
+        if #output > 0 then
+          local json_string = table.concat(output, "\n")
+          debug_log("Attempting to parse JSON output")
+          local parsed = parse_ccusage_output(json_string)
+          if parsed then
+            debug_log("Successfully parsed ccusage data")
+            cache.data = parsed
+            cache.last_update = vim.loop.now()
+            cache.last_error = nil
+            if callback then callback(parsed) end
+          else
+            debug_log("Failed to parse ccusage data")
+          end
+        else
+          debug_log("Command succeeded but returned no output")
+          cache.last_error = "Command succeeded but returned no output"
+        end
+      else
+        debug_log("Command failed with exit code: " .. code)
+        cache.last_error = "Command failed with exit code: " .. code
+        if #error_output > 0 then
+          cache.last_error = cache.last_error .. "\n" .. table.concat(error_output, "\n")
         end
       end
     end,
   })
+  
+  if job_id == 0 then
+    debug_log("Failed to start job")
+    cache.last_error = "Failed to start job (command not found or invalid)"
+  elseif job_id == -1 then
+    debug_log("Invalid job arguments")
+    cache.last_error = "Invalid job arguments"
+  else
+    debug_log("Job started with ID: " .. job_id)
+  end
 end
 
 local function start_timer()
@@ -125,6 +203,20 @@ M.get_lualine_component = function()
     cond = function()
       return cache.data ~= nil
     end,
+  }
+end
+
+M.get_debug_info = function()
+  return {
+    config = config,
+    cache = {
+      has_data = cache.data ~= nil,
+      data = cache.data,
+      last_update = cache.last_update,
+      timer_active = cache.timer ~= nil,
+      last_error = cache.last_error,
+    },
+    command = "npx ccusage@latest blocks --json",
   }
 end
 
